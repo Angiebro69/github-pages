@@ -1,0 +1,159 @@
+# Cel 1
+#Deze code is oorspronkelijk geschreven door Thijs Snel en aangepast door Femke Verheijen en Bert Buisman
+
+#imports
+import pyaudio
+import wave
+import os
+import numpy as np
+
+
+# Audioconfiguratie
+Chunk = 1024  # Aantal frames per buffer (verkleint geheugenbelasting)
+Format = pyaudio.paInt16  # 16-bit audioformaat (standaard voor veel toepassingen)
+Rate = 44100  # Samplefrequentie in Hz (CD-kwaliteit)
+seconds = 8  # Totale opnameduur in seconden
+output_file = "test.wav"  # Naam van het uitvoerbestand
+Channels = 1  # Mono-opname (voor eenvoudiger verwerking)
+
+# Controleer of het bestand al bestaat en waarschuw de gebruiker
+if os.path.exists(output_file):
+    print(f"⚠️ Waarschuwing: {output_file} bestaat al en zal worden overschreven.")
+    
+# Initialiseer PyAudio en start opname
+p = pyaudio.PyAudio()
+stream = p.open(format=Format, channels=Channels, rate=Rate, input=True, frames_per_buffer=Chunk)
+
+print("🎤 Start opname...")
+frames = []  # Opslag voor audioblokken
+clipping_detected = False  # Vlag voor detectie van oversturing
+
+# Lees de audioblokken en sla ze op
+for _ in range(int(Rate / Chunk * seconds)):
+    data = stream.read(Chunk)
+    frames.append(data) 
+
+    # Controleer op clipping (oversturing)
+    audio_array = np.frombuffer(data, dtype=np.int16)
+    if np.any(audio_array >= 32767) or np.any(audio_array <= -32768):
+        clipping_detected = True
+    
+print("🛑 Opname gestopt.")
+stream.stop_stream()
+stream.close()
+p.terminate()
+
+# Opslaan als WAV-bestand
+with wave.open(output_file, 'wb') as wf:
+    wf.setnchannels(Channels)
+    wf.setsampwidth(p.get_sample_size(Format))
+    wf.setframerate(Rate)
+    wf.writeframes(b''.join(frames))
+
+# Geef feedback over mogelijke vervorming
+if clipping_detected:
+    print("⚠️ Waarschuwing: Clipping gedetecteerd! Het opgenomen geluid is mogelijk vervormd.")
+else:
+    print("✅ Geen clipping gedetecteerd.") 
+
+
+
+
+# Cel 2
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.io import wavfile
+#import pandas as pdi
+
+
+# Inlezen van het .wav bestand
+
+file_path = 'test.wav'
+sampling_rate, audio_data = wavfile.read(file_path)
+
+# Tijd-array maken
+duration = len(audio_data) / sampling_rate
+
+time = np.linspace(0., duration, len(audio_data))
+
+verschuiving = 100  # Kalibratiewaarde
+waarde_ref = 32767  # Referentie-amplitude voor dB-conversie
+
+def omzetting(x):
+    """Converteert amplitude naar decibel."""
+    return (20 * np.log10(x / waarde_ref)) + verschuiving
+    
+# Glijdend gemiddelde functie
+file_path = output_file
+sampling_rate, audio_data = wavfile.read(file_path)
+
+# Tijd-array maken
+duration = len(audio_data) / sampling_rate
+time = np.linspace(0., duration, len(audio_data))
+
+tijdsinterval = 0.1
+
+# Bepaal de grootte van het tijdsinterval bij het voortschrijdend gemiddelde
+window_size = int(tijdsinterval * sampling_rate)  # Aantal samples in het tijdsinterval
+
+# Bereken het voortschrijdend gemiddelde van de absolute waarde van de amplitude
+rolling_avg = np.convolve(np.abs(audio_data), np.ones(window_size) / window_size, mode='same')
+
+# Converteer naar decibelwaarden
+uit = omzetting(np.abs(rolling_avg))
+
+plt.figure(figsize=(10, 6))
+plt.plot(time, uit, color='pink')
+plt.title('Geluidsniveau over de tijd')
+plt.xlabel('Tijd (s)')
+plt.ylabel('geluidsniveau (dB)')
+plt.grid()
+plt.show()
+
+
+I_0 = 10**(-12)
+DB = ((10*np.log(np.maximum(np.abs(audio_data) / I_0, 1e-10)))-260)
+maxDB=np.max(DB)
+print('maximale dB waarde is:', maxDB)
+
+
+
+
+
+
+import math
+
+def calculate_decay_time(initial_dB, final_dB, RT60):
+    """
+    Bereken de tijd voor de geluidsafname van een bepaald aantal dB.
+    initial_dB: De initiële geluidssterkte in dB.
+    final_dB: De dB-afname die we willen bereiken (bijv. 20 dB).
+    RT60: De nagalmtijd (in seconden).
+    
+    Retourneer de tijd in seconden.
+    """
+    # Gebruik de afnameformule: L(t) = L_0 - 10 * log10(t / T)
+    # Herbereken de tijd t waarvoor de afname 20 dB is.
+    time_to_decay = RT60 * 10**((initial_dB - final_dB) / 20)
+    return time_to_decay
+
+# Instellingen
+initial_dB = maxDB  # Begin dB (bijv. de maximale geluidssterkte)
+final_dB = 20   # De dB-afname die we willen bereiken
+RT60 = 0.00001        # De nagalmtijd in seconden (bijvoorbeeld 2 seconden)
+
+# Bereken de tijd voor de 20 dB afname
+time_for_20dB_decay = calculate_decay_time(initial_dB, final_dB, RT60)
+
+# Vermenigvuldig de tijd met 3, zoals gevraagd
+time_x3 = time_for_20dB_decay * 3
+
+# Toon het resultaat
+print(f"De tijd voor een afname van {final_dB} dB is {time_for_20dB_decay:.2f} seconden.")
+print(f"De tijd vermenigvuldigd met 3 is: {time_x3:.2f} seconden.")
+
+
+
+
+
+
